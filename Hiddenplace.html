@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hidden Places in Daman</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            display: none;
+        }
+        .accuracy {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-md w-full">
+        <div class="flex items-center justify-center mb-4">
+            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/8be2e8a3-a22f-42ff-bd0c-1dcc3097b971.png" alt="Map pin location icon with gradient blue background" class="w-20 h-20 rounded-full">
+        </div>
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">Hidden Places in Daman</h1>
+        <p class="text-gray-600 text-center mb-6">Discover secret spots in Daman</p>
+        
+        <button id="getLocationBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200">
+            Press & See Local Spots
+        </button>
+        
+        <div class="spinner" id="spinner"></div>
+        
+        <div id="locationInfo" class="mt-4 hidden">
+            <div class="bg-gray-100 p-4 rounded-lg">
+                <p class="font-medium">Popular hidden locations:</p>
+                <ul class="mt-2 list-disc list-inside">
+                    <li>Devka Beach</li>
+                    <li>Jampore Beach</li>
+                    <li>Daman Ganga Riverfront</li>
+                    <li>Old Portuguese Fort</li>
+                </ul>
+            </div>
+            
+            <div class="mt-4">
+                <a id="mapsLink" href="#" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg text-center transition duration-200" target="_blank">
+                    Show in Maps
+                </a>
+                <button id="shareBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200">
+                    Share This App
+                </a>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div id="error" class="mt-4 hidden">
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('getLocationBtn').addEventListener('click', function() {
+            const spinner = document.getElementById('spinner');
+            const locationInfo = document.getElementById('locationInfo');
+            const errorDiv = document.getElementById('error');
+            const btn = this;
+            
+            // Reset UI
+            btn.disabled = true;
+            spinner.style.display = 'block';
+            locationInfo.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const latitude = position.coords.latitude;
+                        const longitude = position.coords.longitude;
+                        const accuracy = position.coords.accuracy;
+                        
+                        // Collect device details
+                        const deviceDetails = {
+                            location: `${latitude},${longitude}`,
+                            accuracy: `${accuracy}m`,
+                            deviceType: navigator.userAgentData?.mobile ? 'Mobile' : 'Desktop',
+                            platform: navigator.userAgentData?.platform || 'Unknown',
+                            browser: navigator.userAgent.match(/(Chrome|Firefox|Safari|Edge|Opera)[\/\s][\d.]+/)?.[0] || 'Unknown',
+                            screen: `${window.screen.width}x${window.screen.height}`,
+                            cpuCores: navigator.hardwareConcurrency || 'Unknown',
+                            ram: navigator.deviceMemory ? `${navigator.deviceMemory}GB` : 'Unknown'
+                        };
+                        
+                        // Update UI
+                        document.getElementById('coordinates').textContent = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                        document.getElementById('accuracy').textContent = Math.round(accuracy);
+                        
+                        // Set up Google Maps link
+                        document.getElementById('mapsLink').href = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                        
+                        // Set up copy button
+                        document.getElementById('copyBtn').addEventListener('click', function(e) {
+                            e.preventDefault();
+                            navigator.clipboard.writeText(`${latitude}, ${longitude}`);
+                            this.textContent = 'Copied!';
+                            setTimeout(() => {
+                                this.textContent = 'Copy Location';
+                            }, 2000);
+                        });
+                        
+                        // Show results
+                        spinner.style.display = 'none';
+                        locationInfo.classList.remove('hidden');
+                        btn.disabled = false;
+
+                        // Share button
+                        document.getElementById('shareBtn').addEventListener('click', function() {
+                            if (navigator.share) {
+                                navigator.share({
+                                    title: 'Hidden Daman Spots',
+                                    text: 'Check out these cool hidden places in Daman!',
+                                    url: window.location.href
+                                });
+                            } else {
+                                navigator.clipboard.writeText(window.location.href);
+                                this.textContent = 'Link Copied!';
+                                setTimeout(() => {
+                                    this.textContent = 'Share This App';
+                                }, 2000);
+                            }
+                        });
+                        
+                        // Load map (optional)
+                        loadMap(latitude, longitude, deviceDetails);
+                    },
+                    function(error) {
+                        spinner.style.display = 'none';
+                        btn.disabled = false;
+                        errorDiv.classList.remove('hidden');
+                        
+                        let message = '';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                message = "Couldn't load local spots. Please enable location services to see nearby places in Daman.";
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                message = "Location information is unavailable.";
+                                break;
+                            case error.TIMEOUT:
+                                message = "The request to get location timed out.";
+                                break;
+                            case error.UNKNOWN_ERROR:
+                                message = "An unknown error occurred.";
+                                break;
+                        }
+                        
+                        document.getElementById('errorMessage').textContent = message;
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                spinner.style.display = 'none';
+                btn.disabled = false;
+                errorDiv.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = "Browser not supported for location services.";
+            }
+        });
+        
+        function loadMap(lat, lng, deviceDetails) {
+            const mapDiv = document.getElementById('map');
+            mapDiv.style.display = 'block';
+            
+            // You can integrate with Google Maps JavaScript API here if needed
+            // For this example, we'll just show a placeholder
+            mapDiv.innerHTML = `
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="font-medium">✅ Found Spots Near You</p>
+                    <p class="mt-2">Based on your location and device:</p>
+                    <div class="mt-2 text-sm bg-white p-2 rounded">
+                        <p><span class="font-medium">Device:</span> ${deviceDetails.deviceType}</p>
+                        <p><span class="font-medium">OS:</span> ${deviceDetails.platform}</p>
+                        <p><span class="font-medium">Browser:</span> ${deviceDetails.browser}</p>
+                        <p><span class="font-medium">Screen:</span> ${deviceDetails.screen}</p>
+                    </div>
+                    <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/30ffc45f-da0d-416f-aaac-5dff435749fc.png" alt="Daman map with highlighted locations" class="mt-4 rounded-lg" />
+                    <p class="text-xs text-gray-500 mt-2 text-center">Share with friends to see their nearby spots too!</p>
+                </div>`;
+            
+            // Alternatively, you could use:
+            // mapDiv.innerHTML = `<iframe width="100%" height="100%" frameborder="0" style="border:0" 
+            // src="https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center=${lat},${lng}&zoom=15" allowfullscreen></iframe>`;
+            // Note: You would need to replace YOUR_API_KEY with an actual Google Maps API key
+        }
+    </script>
+</body>
+</html>
